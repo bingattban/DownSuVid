@@ -15,7 +15,7 @@ jobs:
   build:
     name: Build DownSuVid APK
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     
     steps:
       - name: Checkout repository
@@ -54,7 +54,9 @@ jobs:
             libltdl-dev \
             ccache \
             libncurses-dev \
-            libtinfo-dev
+            libtinfo-dev \
+            unzip \
+            wget
 
       - name: Install 32-bit libraries
         continue-on-error: true
@@ -85,17 +87,15 @@ jobs:
             .buildozer
             ~/.cache/pip
             ~/.buildozer
-          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec', 'main.py') }}
+          key: buildozer-v2-${{ runner.os }}-${{ hashFiles('buildozer.spec', 'main.py') }}
           restore-keys: |
-            buildozer-${{ runner.os }}-
+            buildozer-v2-${{ runner.os }}-
 
-      - name: Create required directories
+      - name: Create required directories and assets
         run: |
           mkdir -p assets/icons
           mkdir -p assets/splash
-
-      - name: Generate placeholder assets
-        run: |
+          
           python3 -c "
           import struct, zlib
           
@@ -116,7 +116,7 @@ jobs:
           
           create_minimal_png('assets/icons/icon.png', 0, 150, 136)
           create_minimal_png('assets/splash/splash.png', 26, 35, 126)
-          print('Placeholder assets created')
+          echo 'Placeholder assets created'
           "
 
       - name: Verify main.py syntax
@@ -124,71 +124,111 @@ jobs:
           python3 -m py_compile main.py
           echo "main.py syntax OK"
 
-      - name: Accept Android SDK licenses
+      - name: Setup Android SDK
         run: |
-          # Create Android SDK directory
-          mkdir -p $HOME/.buildozer/android/platform/android-sdk/licenses
-          mkdir -p $HOME/.android
+          # Create SDK directory structure
+          ANDROID_SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
+          mkdir -p "$ANDROID_SDK_ROOT"
           
-          # Accept all licenses automatically
-          echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-          echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd\n504667f4c0de7af1a06de9f4b1727b84351f2910" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
+          # Download and install commandline tools
+          cd /tmp
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip
           
-          # Also for standard location
-          echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $HOME/.android/android-sdk-license
-          echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd\n504667f4c0de7af1a06de9f4b1727b84351f2910" > $HOME/.android/android-sdk-preview-license
+          # Install to SDK root
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          mv cmdline-tools "$ANDROID_SDK_ROOT/cmdline-tools/latest"
           
-          echo "Android SDK licenses accepted"
+          # Set environment
+          export ANDROID_SDK_ROOT="$ANDROID_SDK_ROOT"
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+          
+          # Accept licenses
+          yes | sdkmanager --licenses 2>/dev/null || true
+          
+          # Install required packages
+          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" 2>/dev/null || true
+          
+          # Also create license files manually as fallback
+          mkdir -p "$ANDROID_SDK_ROOT/licenses"
+          echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55" > "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
+          echo -e "\nd56f5187479451eabf01fb78af6dfcb131a6481e" >> "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
+          echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" >> "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
+          
+          echo "Android SDK setup complete"
+          echo "SDK Root: $ANDROID_SDK_ROOT"
+          ls -la "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/" 2>/dev/null || echo "No cmdline-tools bin"
 
       - name: Build APK with Buildozer
         id: build
         env:
           ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
           ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
-          JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
+          JAVA_HOME: ${{ env.JAVA_HOME }}
         run: |
-          echo "Starting Buildozer build..."
+          echo "============================================"
+          echo "Starting Buildozer build"
           echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           echo "JAVA_HOME=$JAVA_HOME"
+          echo "============================================"
+          
+          # Fix sdkmanager path issue by creating symlink if needed
+          if [ ! -f "$ANDROID_SDK_ROOT/tools/bin/sdkmanager" ]; then
+            echo "Creating sdkmanager in expected location..."
+            mkdir -p "$ANDROID_SDK_ROOT/tools/bin"
+            
+            if [ -f "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
+              ln -sf "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "$ANDROID_SDK_ROOT/tools/bin/sdkmanager"
+              echo "Symlink created"
+            fi
+          fi
+          
+          # Verify sdkmanager
+          which sdkmanager 2>/dev/null || echo "sdkmanager not in PATH"
+          find "$ANDROID_SDK_ROOT" -name "sdkmanager" 2>/dev/null
           
           # Run buildozer
           buildozer android debug 2>&1 | tee build.log
           BUILD_EXIT_CODE=${PIPESTATUS[0]}
           
           if [ $BUILD_EXIT_CODE -ne 0 ]; then
-            echo "Buildozer failed with exit code $BUILD_EXIT_CODE"
-            echo "=== Last 100 lines of build log ==="
-            tail -100 build.log
-            
-            # Check for license issues
-            if grep -q "license" build.log; then
-              echo "=== License issue detected ==="
-              ls -la $HOME/.buildozer/android/platform/android-sdk/licenses/ 2>/dev/null || echo "No licenses dir"
-              ls -la $HOME/.android/ 2>/dev/null || echo "No .android dir"
-            fi
-            
+            echo "============================================"
+            echo "Build failed with exit code $BUILD_EXIT_CODE"
+            echo "============================================"
+            echo "=== Last 80 lines of build log ==="
+            tail -80 build.log
             exit 1
           fi
+          
+          echo "Build completed successfully!"
 
       - name: Locate APK file
         id: locate
         run: |
           echo "Searching for APK..."
           
+          # Check multiple locations
+          APK_PATH=""
+          
           if ls bin/*.apk 2>/dev/null; then
             APK_PATH=$(ls bin/*.apk | head -1)
+          elif find .buildozer -name "*.apk" -not -name "*unaligned*" -not -name "*unsigned*" 2>/dev/null | head -1; then
+            APK_PATH=$(find .buildozer -name "*.apk" -not -name "*unaligned*" -not -name "*unsigned*" | head -1)
+          elif find . -name "*.apk" -not -name "*unaligned*" -not -name "*unsigned*" 2>/dev/null | head -1; then
+            APK_PATH=$(find . -name "*.apk" -not -name "*unaligned*" -not -name "*unsigned*" | head -1)
+          fi
+          
+          if [ -n "$APK_PATH" ]; then
             echo "APK found at: $APK_PATH"
             echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
             ls -lh "$APK_PATH"
-          elif find .buildozer -name "*.apk" -not -path "*unaligned*" 2>/dev/null | head -1; then
-            APK_PATH=$(find .buildozer -name "*.apk" -not -path "*unaligned*" | head -1)
-            echo "APK found at: $APK_PATH"
-            echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-            ls -lh "$APK_PATH"
+            echo "APK_SIZE=$(stat -c%s "$APK_PATH")" >> $GITHUB_OUTPUT
           else
-            echo "APK not found"
-            echo "Searching all directories..."
-            find . -name "*.apk" 2>/dev/null || echo "No APK files found"
+            echo "ERROR: APK not found!"
+            echo "Directory structure:"
+            ls -la bin/ 2>/dev/null || echo "bin/ not found"
+            find . -name "*.apk" 2>/dev/null || echo "No APK files anywhere"
             exit 1
           fi
 
@@ -219,5 +259,5 @@ jobs:
           echo "Build completed at $(date)"
           echo "Runner: ${{ runner.os }}"
           echo "Python: $(python3 --version)"
-          echo "Java: $(java -version 2>&1 | head -1)"
+          echo "Java: $(java -version 2>&1 | head -1 || echo 'not found')"
           echo "============================================"
