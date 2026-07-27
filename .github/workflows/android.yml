@@ -3,83 +3,193 @@ name: Build Android APK
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
+
+# منع تشغيل متعدد
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    name: Build DownSuVid APK
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: Setup Python
+
+      - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      
-      - name: Install system deps
+          cache: 'pip'
+
+      - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential git python3-pip python3-dev \
-            openjdk-17-jdk autoconf automake libtool \
-            libffi-dev libssl-dev zlib1g-dev cmake ninja-build \
-            pkg-config libltdl-dev
-      
-      - name: Install 32-bit libs
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            build-essential \
+            git \
+            python3-pip \
+            python3-dev \
+            python3-setuptools \
+            openjdk-17-jdk \
+            autoconf \
+            automake \
+            libtool \
+            libffi-dev \
+            libssl-dev \
+            zlib1g-dev \
+            cmake \
+            ninja-build \
+            pkg-config \
+            libltdl-dev \
+            libncurses5 \
+            libtinfo5 \
+            ccache
+
+      - name: Install 32-bit libraries
         continue-on-error: true
         run: |
           sudo dpkg --add-architecture i386
-          sudo apt-get update
-          sudo apt-get install -y libncurses5:i386 libstdc++6:i386 zlib1g:i386
-      
-      - name: Install Python packages
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            libncurses5:i386 \
+            libstdc++6:i386 \
+            zlib1g:i386 \
+            libffi-dev:i386 2>/dev/null || echo "Some 32-bit libs skipped"
+
+      - name: Upgrade pip and install build tools
         run: |
-          pip install --upgrade pip setuptools wheel
-          pip install buildozer cython
-      
-      - name: Cache
+          python -m pip install --upgrade pip setuptools wheel
+          pip install buildozer==1.5.0
+          pip install cython==0.29.36
+          pip install virtualenv
+
+      - name: Verify buildozer installation
+        run: |
+          buildozer version
+          echo "Buildozer installed successfully"
+
+      - name: Cache Buildozer dependencies
         uses: actions/cache@v4
         with:
           path: |
             .buildozer
             ~/.cache/pip
-          key: buildozer-${{ hashFiles('buildozer.spec') }}
-      
-      - name: Build APK
+            ~/.buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec', 'main.py') }}
+          restore-keys: |
+            buildozer-${{ runner.os }}-
+
+      - name: Create required directories
         run: |
+          mkdir -p assets/icons
+          mkdir -p assets/splash
+
+      - name: Generate placeholder assets
+        run: |
+          # Create simple icon using Python
+          python3 -c "
+          # Generate minimal PNG for icon
+          import struct, zlib
+          
+          def create_minimal_png(filename, r=26, g=35, b=126):
+              # Minimal 1x1 PNG with specified color
+              def chunk(chunk_type, data):
+                  c = chunk_type + data
+                  return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
+              
+              # RGBA pixel data
+              raw_data = b'\x00' + bytes([r, g, b, 255])
+              
+              header = b'\x89PNG\r\n\x1a\n'
+              ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', 1, 1, 8, 6, 0, 0, 0))
+              idat = chunk(b'IDAT', zlib.compress(raw_data))
+              iend = chunk(b'IEND', b'')
+              
+              with open(filename, 'wb') as f:
+                  f.write(header + ihdr + idat + iend)
+          
+          create_minimal_png('assets/icons/icon.png', 0, 150, 136)
+          create_minimal_png('assets/splash/splash.png', 26, 35, 126)
+          print('Placeholder assets created')
+          "
+
+      - name: Verify main.py syntax
+        run: |
+          python3 -m py_compile main.py
+          echo "main.py syntax OK"
+
+      - name: Build APK with Buildozer
+        id: build
+        run: |
+          echo "Starting Buildozer build..."
           buildozer android debug 2>&1 | tee build.log
-      
-      - name: Check APK
-        run: |
-          echo "=== Checking for APK ==="
-          ls -la bin/ || echo "bin/ not found"
-          ls -la .buildozer/ || echo ".buildozer/ not found"
-          if ls bin/*.apk 2>/dev/null; then
-            echo "APK found!"
-            ls -lh bin/*.apk
-          else
-            echo "APK not found in bin/"
-            find . -name "*.apk" 2>/dev/null || echo "No APK files found anywhere"
-            echo "=== Build log (last 100 lines) ==="
-            tail -100 build.log || echo "No build log"
+          BUILD_EXIT_CODE=${PIPESTATUS[0]}
+          
+          if [ $BUILD_EXIT_CODE -ne 0 ]; then
+            echo "Buildozer failed with exit code $BUILD_EXIT_CODE"
+            echo "=== Last 100 lines of build log ==="
+            tail -100 build.log
+            exit 1
           fi
-      
-      - name: Upload APK
+
+      - name: Locate APK file
+        id: locate
+        run: |
+          echo "Searching for APK..."
+          
+          # Check standard locations
+          if ls bin/*.apk 2>/dev/null; then
+            APK_PATH=$(ls bin/*.apk | head -1)
+            echo "APK found at: $APK_PATH"
+            echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+            ls -lh "$APK_PATH"
+          elif find .buildozer -name "*.apk" 2>/dev/null | head -1; then
+            APK_PATH=$(find .buildozer -name "*.apk" | head -1)
+            echo "APK found at: $APK_PATH"
+            echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+            ls -lh "$APK_PATH"
+          else
+            echo "APK not found in standard locations"
+            find . -name "*.apk" 2>/dev/null || echo "No APK files found"
+            echo "=== Directory structure ==="
+            ls -la
+            ls -la bin/ 2>/dev/null || echo "No bin directory"
+            ls -la .buildozer/ 2>/dev/null || echo "No .buildozer directory"
+            exit 1
+          fi
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: DownSuVid-APK
-          path: bin/*.apk
+          path: ${{ steps.locate.outputs.apk_path }}
           retention-days: 30
-          if-no-files-found: warn
-      
-      - name: Upload logs
+          compression-level: 6
+          if-no-files-found: error
+
+      - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-logs
-          path: build.log
+          name: build-logs-${{ github.run_id }}
+          path: |
+            build.log
+            .buildozer/android/platform/python-for-android/build.log
           retention-days: 7
           if-no-files-found: ignore
+
+      - name: Build summary
+        if: always()
+        run: |
+          echo "============================================"
+          echo "Build completed at $(date)"
+          echo "Runner: ${{ runner.os }}"
+          echo "Python: $(python3 --version)"
+          echo "============================================"
