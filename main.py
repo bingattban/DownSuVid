@@ -1,136 +1,172 @@
 """
-DownSuVid - Video Downloader with Smart Subtitle Processing
-Main Application Entry Point
+DownSuVid - Video Downloader Application
+Simplified version for initial build
 """
 
 import os
 import sys
-import logging
 
-# Configure Kivy before importing other modules
+# Configure Kivy before any other imports
 from kivy.config import Config
-Config.set('kivy', 'log_level', 'info')
-Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
+Config.set('kivy', 'log_level', 'debug')
 Config.set('kivy', 'exit_on_escape', 0)
-Config.set('graphics', 'resizable', 0)
-Config.set('graphics', 'width', '360')
-Config.set('graphics', 'height', '640')
 
 from kivy.app import App
-from kivy.lang import Builder
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.label import Label
+from kivy.uix.button import Button
+from kivy.uix.textinput import TextInput
+from kivy.uix.scrollview import ScrollView
+from kivy.uix.progressbar import ProgressBar
 from kivy.core.window import Window
-from kivy.clock import Clock
+from kivy.metrics import dp
 from kivy.utils import platform
 
-from app.config.constants import APP_NAME, APP_VERSION
-from app.utils.logger import setup_logger
+# Set window size for desktop testing
+Window.size = (400, 700)
 
-# Setup logger first
-logger = setup_logger('DownSuVid', logging.INFO)
+
+class DownloaderScreen(BoxLayout):
+    """Main downloader screen"""
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = 'vertical'
+        self.padding = dp(15)
+        self.spacing = dp(10)
+        
+        # Title
+        title = Label(
+            text='DownSuVid - تحميل الفيديو',
+            size_hint_y=None,
+            height=dp(50),
+            font_size=dp(20),
+            bold=True,
+            color=(0.1, 0.6, 0.8, 1)
+        )
+        self.add_widget(title)
+        
+        # URL Input
+        self.url_input = TextInput(
+            hint_text='أدخل رابط الفيديو هنا...',
+            size_hint_y=None,
+            height=dp(50),
+            multiline=False,
+            font_size=dp(14)
+        )
+        self.add_widget(self.url_input)
+        
+        # Buttons
+        btn_layout = BoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(50),
+            spacing=dp(10)
+        )
+        
+        analyze_btn = Button(
+            text='تحليل الرابط',
+            on_press=self.analyze_url,
+            background_color=(0.1, 0.6, 0.8, 1)
+        )
+        btn_layout.add_widget(analyze_btn)
+        
+        download_btn = Button(
+            text='تحميل',
+            on_press=self.start_download,
+            background_color=(0.2, 0.8, 0.3, 1)
+        )
+        btn_layout.add_widget(download_btn)
+        
+        self.add_widget(btn_layout)
+        
+        # Progress
+        self.progress = ProgressBar(
+            max=100,
+            value=0,
+            size_hint_y=None,
+            height=dp(20)
+        )
+        self.add_widget(self.progress)
+        
+        # Status
+        self.status_label = Label(
+            text='جاهز',
+            size_hint_y=None,
+            height=dp(30),
+            font_size=dp(12),
+            color=(0.5, 0.5, 0.5, 1)
+        )
+        self.add_widget(self.status_label)
+        
+        # Info area
+        scroll = ScrollView()
+        self.info_label = Label(
+            text='',
+            size_hint_y=None,
+            text_size=(dp(350), None),
+            font_size=dp(11)
+        )
+        self.info_label.bind(texture_size=self.info_label.setter('size'))
+        scroll.add_widget(self.info_label)
+        self.add_widget(scroll)
+    
+    def analyze_url(self, instance):
+        """Analyze URL button handler"""
+        url = self.url_input.text.strip()
+        if not url:
+            self.status_label.text = 'الرجاء إدخال رابط'
+            return
+        
+        self.status_label.text = 'جاري التحليل...'
+        self.progress.value = 0
+        
+        # Simple URL validation
+        if url.startswith('http://') or url.startswith('https://'):
+            self.info_label.text = f'تم تحليل الرابط:\n{url}\n\nالميزات قيد التطوير...'
+            self.status_label.text = 'تم التحليل بنجاح'
+            self.progress.value = 100
+        else:
+            self.status_label.text = 'رابط غير صالح'
+            self.info_label.text = 'الرجاء إدخال رابط صحيح يبدأ بـ http:// أو https://'
+    
+    def start_download(self, instance):
+        """Start download button handler"""
+        url = self.url_input.text.strip()
+        if not url:
+            self.status_label.text = 'الرجاء إدخال رابط'
+            return
+        
+        self.status_label.text = 'جاري التحميل...'
+        
+        # Simulate download progress
+        from kivy.clock import Clock
+        
+        def update_progress(dt):
+            if self.progress.value < 100:
+                self.progress.value += 10
+                self.status_label.text = f'جاري التحميل... {int(self.progress.value)}%'
+            else:
+                self.status_label.text = 'اكتمل التحميل!'
+                self.info_label.text += '\nتم التحميل بنجاح (محاكاة)'
+                return False
+            return True
+        
+        self.progress.value = 0
+        Clock.schedule_interval(update_progress, 0.5)
 
 
 class DownSuVidApp(App):
-    """Main Application Class"""
+    """Main Application"""
     
-    def __init__(self, **kwargs):
-        super(DownSuVidApp, self).__init__(**kwargs)
-        self.title = f'{APP_NAME} v{APP_VERSION}'
-        self.di_container = None
-        
     def build(self):
-        """Build the application UI"""
-        try:
-            logger.info(f"Starting {APP_NAME} v{APP_VERSION}")
-            
-            # Initialize dependency injection
-            from app.dependency_injection import DIContainer
-            self.di_container = DIContainer()
-            self.di_container.initialize_all()
-            
-            # Setup RTL support for Arabic
-            Window.softinput_mode = 'below_target'
-            
-            # Apply theme
-            self._apply_theme()
-            
-            # Initialize navigation
-            from app.presentation.navigation.navigation_manager import NavigationManager
-            self.navigation_manager = NavigationManager()
-            
-            # Load KV files
-            self._load_kv_files()
-            
-            logger.info("Application built successfully")
-            
-            return self.navigation_manager.get_root_widget()
-            
-        except Exception as e:
-            logger.critical(f"Failed to build application: {e}", exc_info=True)
-            raise
-    
-    def _apply_theme(self):
-        """Apply application theme"""
-        try:
-            from app.config.app_config import AppConfig
-            config = AppConfig()
-            theme = config.get('theme', 'dark')
-            
-            if theme == 'dark':
-                Window.clearcolor = (0.12, 0.12, 0.12, 1)
-            else:
-                Window.clearcolor = (0.95, 0.95, 0.95, 1)
-            
-            logger.info(f"Theme '{theme}' applied")
-            
-        except Exception as e:
-            logger.warning(f"Failed to apply theme: {e}")
-            Window.clearcolor = (0.12, 0.12, 0.12, 1)
-    
-    def _load_kv_files(self):
-        """Load all KV files"""
-        try:
-            import os as _os
-            
-            kv_dir = _os.path.join(_os.path.dirname(__file__), 'app', 'presentation', 'screens')
-            
-            screens = ['downloader', 'downloads', 'models', 'settings', 'about']
-            for screen in screens:
-                kv_file = _os.path.join(kv_dir, screen, f'{screen}_screen.kv')
-                if _os.path.exists(kv_file):
-                    Builder.load_file(kv_file)
-                    logger.debug(f"Loaded KV: {kv_file}")
-                else:
-                    logger.warning(f"KV file not found: {kv_file}")
-            
-            logger.info("All KV files loaded")
-            
-        except Exception as e:
-            logger.error(f"Failed to load KV files: {e}")
-    
-    def on_start(self):
-        """Called when application starts"""
-        logger.info(f"{APP_NAME} started successfully")
-    
-    def on_pause(self):
-        """Called when application is paused"""
-        return True
-    
-    def on_resume(self):
-        """Called when application resumes"""
-        pass
-    
-    def on_stop(self):
-        """Called when application stops"""
-        logger.info("Application stopping")
-        if self.di_container:
-            self.di_container.shutdown()
-        logger.info("Application stopped")
+        self.title = 'DownSuVid'
+        return DownloaderScreen()
 
 
 if __name__ == '__main__':
     try:
-        app = DownSuVidApp()
-        app.run()
+        DownSuVidApp().run()
     except Exception as e:
-        logger.critical(f"Application crashed: {e}", exc_info=True)
+        print(f"Error: {e}")
         sys.exit(1)
