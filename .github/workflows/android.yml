@@ -7,7 +7,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# منع تشغيل متعدد
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -48,9 +47,9 @@ jobs:
             ninja-build \
             pkg-config \
             libltdl-dev \
-            libncurses5 \
-            libtinfo5 \
-            ccache
+            ccache \
+            libncurses-dev \
+            libtinfo-dev
 
       - name: Install 32-bit libraries
         continue-on-error: true
@@ -58,14 +57,14 @@ jobs:
           sudo dpkg --add-architecture i386
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
-            libncurses5:i386 \
+            libncurses-dev:i386 \
             libstdc++6:i386 \
             zlib1g:i386 \
-            libffi-dev:i386 2>/dev/null || echo "Some 32-bit libs skipped"
+            libtinfo-dev:i386 2>/dev/null || echo "Some 32-bit libs skipped"
 
       - name: Upgrade pip and install build tools
         run: |
-          python -m pip install --upgrade pip setuptools wheel
+          python3 -m pip install --upgrade pip setuptools wheel
           pip install buildozer==1.5.0
           pip install cython==0.29.36
           pip install virtualenv
@@ -93,18 +92,14 @@ jobs:
 
       - name: Generate placeholder assets
         run: |
-          # Create simple icon using Python
           python3 -c "
-          # Generate minimal PNG for icon
           import struct, zlib
           
           def create_minimal_png(filename, r=26, g=35, b=126):
-              # Minimal 1x1 PNG with specified color
               def chunk(chunk_type, data):
                   c = chunk_type + data
                   return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
               
-              # RGBA pixel data
               raw_data = b'\x00' + bytes([r, g, b, 255])
               
               header = b'\x89PNG\r\n\x1a\n'
@@ -144,7 +139,6 @@ jobs:
         run: |
           echo "Searching for APK..."
           
-          # Check standard locations
           if ls bin/*.apk 2>/dev/null; then
             APK_PATH=$(ls bin/*.apk | head -1)
             echo "APK found at: $APK_PATH"
@@ -156,12 +150,8 @@ jobs:
             echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
             ls -lh "$APK_PATH"
           else
-            echo "APK not found in standard locations"
-            find . -name "*.apk" 2>/dev/null || echo "No APK files found"
-            echo "=== Directory structure ==="
-            ls -la
-            ls -la bin/ 2>/dev/null || echo "No bin directory"
-            ls -la .buildozer/ 2>/dev/null || echo "No .buildozer directory"
+            echo "APK not found"
+            find . -name "*.apk" 2>/dev/null || echo "No APK files found anywhere"
             exit 1
           fi
 
