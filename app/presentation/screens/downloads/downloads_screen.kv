@@ -1,0 +1,29 @@
+<DownloadsScreen>:
+    name: 'downloads'
+    
+    MDBoxLayout:
+        orientation: 'vertical'
+        spacing: 0
+        
+        MDToolbar:
+            title: 'المُحَمَّلات'
+            left_action_items: [['arrow-left', lambda x: setattr(app.root, 'current', 'downloader')]]
+            right_action_items: [['delete-sweep', lambda x: root.clear_completed()]]
+            elevation: 10
+        
+        MDScrollView:
+            MDBoxLayout:
+                id: downloads_list
+                orientation: 'vertical'
+                spacing: dp(10)
+                padding: dp(10)
+                adaptive_height: True
+                
+                MDLabel:
+                    text: 'لا توجد تحميلات حالياً'
+                    halign: 'center'
+                    font_style: 'Subtitle1'
+                    theme_text_color: 'Secondary'
+                    opacity: 0.5
+                    size_hint_y: None
+                    height: dp(100)

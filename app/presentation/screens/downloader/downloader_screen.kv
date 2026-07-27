@@ -1,0 +1,311 @@
+#:import MDTextField kivymd.uix.textfield.MDTextField
+#:import MDRaisedButton kivymd.uix.button.MDRaisedButton
+#:import MDIconButton kivymd.uix.button.MDIconButton
+#:import MDFlatButton kivymd.uix.button.MDFlatButton
+#:import MDCard kivymd.uix.card.MDCard
+#:import MDSeparator kivymd.uix.separator.MDSeparator
+#:import MDProgressBar kivymd.uix.progressbar.MDProgressBar
+#:import MDLabel kivymd.uix.label.MDLabel
+#:import MDScreen kivymd.uix.screen.MDScreen
+#:import MDBoxLayout kivymd.uix.boxlayout.MDBoxLayout
+#:import MDScrollView kivymd.uix.scrollview.MDScrollView
+#:import AsyncImage kivymd.uix.imagelist.AsyncImage
+
+<DownloaderScreen>:
+    name: 'downloader'
+    
+    MDBoxLayout:
+        orientation: 'vertical'
+        spacing: 0
+        padding: 0
+        
+        # Top Bar
+        MDToolbar:
+            title: 'تحميل الفيديو'
+            left_action_items: [['menu', lambda x: nav_drawer.set_state('open')]]
+            right_action_items: [['history', lambda x: root.show_history()]]
+            elevation: 10
+            md_bg_color: app.theme_cls.primary_color
+        
+        MDScrollView:
+            do_scroll_x: False
+            do_scroll_y: True
+            
+            MDBoxLayout:
+                orientation: 'vertical'
+                spacing: dp(15)
+                padding: dp(15)
+                adaptive_height: True
+                
+                # URL Input Section
+                MDCard:
+                    orientation: 'vertical'
+                    padding: dp(15)
+                    spacing: dp(10)
+                    elevation: 5
+                    radius: [15]
+                    size_hint_y: None
+                    height: self.minimum_height
+                    
+                    MDLabel:
+                        text: 'رابط الفيديو'
+                        font_style: 'Subtitle1'
+                        bold: True
+                        theme_text_color: 'Primary'
+                    
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        spacing: dp(10)
+                        adaptive_height: True
+                        
+                        MDTextField:
+                            id: url_input
+                            hint_text: 'أدخل رابط الفيديو هنا...'
+                            mode: 'rectangle'
+                            size_hint_x: 0.7
+                            multiline: False
+                            on_text_validate: root.analyze_url()
+                        
+                        MDIconButton:
+                            icon: 'content-paste'
+                            on_release: root.paste_url()
+                            size_hint_x: 0.1
+                            theme_text_color: 'Custom'
+                            text_color: app.theme_cls.primary_color
+                        
+                        MDIconButton:
+                            icon: 'close-circle'
+                            on_release: root.clear_url()
+                            size_hint_x: 0.1
+                            theme_text_color: 'Custom'
+                            text_color: 1, 0, 0, 1
+                    
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        spacing: dp(10)
+                        adaptive_height: True
+                        
+                        MDRaisedButton:
+                            id: analyze_btn
+                            text: 'تحليل الرابط'
+                            icon: 'magnify'
+                            size_hint_x: 0.5
+                            on_release: root.analyze_url()
+                            md_bg_color: app.theme_cls.primary_color
+                        
+                        MDFlatButton:
+                            text: 'مسح'
+                            icon: 'delete'
+                            size_hint_x: 0.5
+                            on_release: root.clear_all()
+                
+                # Video Info Section
+                MDCard:
+                    id: video_info_card
+                    orientation: 'vertical'
+                    padding: dp(15)
+                    spacing: dp(10)
+                    elevation: 5
+                    radius: [15]
+                    size_hint_y: None
+                    height: self.minimum_height
+                    opacity: 0
+                    disabled: True
+                    
+                    # Thumbnail
+                    AsyncImage:
+                        id: thumbnail
+                        source: ''
+                        size_hint_y: None
+                        height: dp(200)
+                        allow_stretch: True
+                        keep_ratio: True
+                        radius: [10]
+                    
+                    # Video Details
+                    MDBoxLayout:
+                        orientation: 'vertical'
+                        spacing: dp(5)
+                        adaptive_height: True
+                        
+                        MDLabel:
+                            id: video_title
+                            text: ''
+                            font_style: 'H6'
+                            bold: True
+                            theme_text_color: 'Primary'
+                        
+                        MDSeparator:
+                            height: dp(1)
+                        
+                        MDBoxLayout:
+                            orientation: 'horizontal'
+                            spacing: dp(20)
+                            adaptive_height: True
+                            adaptive_width: True
+                            
+                            MDLabel:
+                                id: video_uploader
+                                text: ''
+                                font_style: 'Caption'
+                                theme_text_color: 'Secondary'
+                            
+                            MDLabel:
+                                id: video_duration
+                                text: ''
+                                font_style: 'Caption'
+                                theme_text_color: 'Secondary'
+                            
+                            MDLabel:
+                                id: video_website
+                                text: ''
+                                font_style: 'Caption'
+                                theme_text_color: 'Secondary'
+                
+                # Formats Section
+                MDCard:
+                    id: formats_card
+                    orientation: 'vertical'
+                    padding: dp(15)
+                    spacing: dp(10)
+                    elevation: 5
+                    radius: [15]
+                    size_hint_y: None
+                    height: self.minimum_height
+                    opacity: 0
+                    disabled: True
+                    
+                    MDLabel:
+                        text: 'الجودة المتاحة'
+                        font_style: 'Subtitle1'
+                        bold: True
+                        theme_text_color: 'Primary'
+                    
+                    MDGridLayout:
+                        id: quality_grid
+                        cols: 3
+                        spacing: dp(10)
+                        adaptive_height: True
+                        row_default_height: dp(40)
+                
+                # Subtitle Options
+                MDCard:
+                    id: subtitle_card
+                    orientation: 'vertical'
+                    padding: dp(15)
+                    spacing: dp(10)
+                    elevation: 5
+                    radius: [15]
+                    size_hint_y: None
+                    height: self.minimum_height
+                    opacity: 0
+                    disabled: True
+                    
+                    MDLabel:
+                        text: 'خيارات الترجمة'
+                        font_style: 'Subtitle1'
+                        bold: True
+                        theme_text_color: 'Primary'
+                    
+                    MDBoxLayout:
+                        id: subtitle_languages_box
+                        orientation: 'vertical'
+                        spacing: dp(5)
+                        adaptive_height: True
+                    
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        spacing: dp(10)
+                        adaptive_height: True
+                        
+                        MDRaisedButton:
+                            text: 'تحميل الترجمة فقط'
+                            icon: 'subtitles'
+                            size_hint_x: 0.5
+                            md_bg_color: app.theme_cls.primary_color
+                            on_release: root.download_subtitle_only()
+                        
+                        MDFlatButton:
+                            text: 'توليد ترجمة'
+                            icon: 'microphone'
+                            size_hint_x: 0.5
+                            on_release: root.generate_subtitle()
+                
+                # Download Button
+                MDRaisedButton:
+                    id: download_btn
+                    text: 'تحميل الفيديو'
+                    icon: 'download'
+                    size_hint_y: None
+                    height: dp(50)
+                    md_bg_color: app.theme_cls.accent_color
+                    on_release: root.start_download()
+                    opacity: 0
+                    disabled: True
+                
+                # Progress Section
+                MDCard:
+                    id: progress_card
+                    orientation: 'vertical'
+                    padding: dp(15)
+                    spacing: dp(10)
+                    elevation: 5
+                    radius: [15]
+                    size_hint_y: None
+                    height: self.minimum_height
+                    opacity: 0
+                    disabled: True
+                    
+                    MDLabel:
+                        id: progress_title
+                        text: 'جاري التحميل...'
+                        font_style: 'Subtitle1'
+                        bold: True
+                    
+                    MDProgressBar:
+                        id: progress_bar
+                        value: 0
+                        max: 100
+                        running_value: 0
+                        catching_value: 0
+                        type: 'determinate'
+                    
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        spacing: dp(10)
+                        adaptive_height: True
+                        
+                        MDLabel:
+                            id: progress_percentage
+                            text: '0%'
+                            font_style: 'Caption'
+                            size_hint_x: 0.3
+                        
+                        MDLabel:
+                            id: progress_speed
+                            text: ''
+                            font_style: 'Caption'
+                            size_hint_x: 0.4
+                            halign: 'center'
+                        
+                        MDLabel:
+                            id: progress_eta
+                            text: ''
+                            font_style: 'Caption'
+                            size_hint_x: 0.3
+                            halign: 'right'
+                    
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        spacing: dp(10)
+                        adaptive_height: True
+                        
+                        MDIconButton:
+                            icon: 'pause'
+                            on_release: root.pause_download()
+                        
+                        MDIconButton:
+                            icon: 'stop'
+                            on_release: root.cancel_download()
+                            theme_text_color: 'Custom'
+                            text_color: 1, 0, 0, 1

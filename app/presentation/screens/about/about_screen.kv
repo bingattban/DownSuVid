@@ -1,0 +1,169 @@
+<AboutScreen>:
+    name: 'about'
+    
+    MDBoxLayout:
+        orientation: 'vertical'
+        spacing: 0
+        
+        MDToolbar:
+            title: 'حول التطبيق'
+            left_action_items: [['arrow-left', lambda x: setattr(app.root, 'current', 'settings')]]
+            elevation: 10
+        
+        MDScrollView:
+            MDBoxLayout:
+                orientation: 'vertical'
+                spacing: dp(20)
+                padding: dp(20)
+                adaptive_height: True
+                
+                # App Icon
+                MDCard:
+                    orientation: 'vertical'
+                    padding: dp(20)
+                    spacing: dp(10)
+                    elevation: 5
+                    radius: [20]
+                    size_hint_y: None
+                    height: dp(200)
+                    
+                    MDIcon:
+                        icon: 'download'
+                        size_hint: None, None
+                        size: dp(80), dp(80)
+                        pos_hint: {'center_x': 0.5}
+                        theme_text_color: 'Custom'
+                        text_color: app.theme_cls.primary_color
+                    
+                    MDLabel:
+                        text: 'DownSuVid'
+                        font_style: 'H4'
+                        bold: True
+                        halign: 'center'
+                        theme_text_color: 'Primary'
+                    
+                    MDLabel:
+                        text: 'داون سو فيد'
+                        font_style: 'H6'
+                        halign: 'center'
+                        theme_text_color: 'Secondary'
+                    
+                    MDLabel:
+                        text: 'الإصدار 1.0.0'
+                        font_style: 'Caption'
+                        halign: 'center'
+                        theme_text_color: 'Secondary'
+                
+                # Description
+                MDCard:
+                    orientation: 'vertical'
+                    padding: dp(15)
+                    spacing: dp(10)
+                    elevation: 5
+                    radius: [15]
+                    size_hint_y: None
+                    height: self.minimum_height
+                    
+                    MDLabel:
+                        text: 'تطبيق تحميل فيديوهات مع معالجة ذكية للترجمة'
+                        font_style: 'Body1'
+                        halign: 'center'
+                        theme_text_color: 'Primary'
+                    
+                    MDSeparator:
+                        height: dp(1)
+                    
+                    MDLabel:
+                        text: '''
+                        مميزات التطبيق:
+                        • تحميل فيديوهات من مواقع متعددة
+                        • معالجة ذكية للترجمة
+                        • ترجمة آلية إلى العربية
+                        • توليد ترجمة صوتية
+                        • دعم كامل للغة العربية
+                        • واجهة مستخدم سهلة وبسيطة
+                        '''
+                        font_style: 'Body2'
+                        theme_text_color: 'Secondary'
+                        halign: 'right'
+                
+                # Credits
+                MDCard:
+                    orientation: 'vertical'
+                    padding: dp(15)
+                    spacing: dp(10)
+                    elevation: 5
+                    radius: [15]
+                    size_hint_y: None
+                    height: self.minimum_height
+                    
+                    MDLabel:
+                        text: 'المكتبات المستخدمة'
+                        font_style: 'H6'
+                        bold: True
+                        theme_text_color: 'Primary'
+                    
+                    MDSeparator:
+                        height: dp(1)
+                    
+                    MDLabel:
+                        text: '''
+                        • Kivy & KivyMD - واجهة المستخدم
+                        • yt-dlp - محرك التحميل
+                        • FFmpeg - معالجة الوسائط
+                        • Whisper - التعرف الصوتي
+                        • Argos Translate - الترجمة الآلية
+                        '''
+                        font_style: 'Caption'
+                        theme_text_color: 'Secondary'
+                        halign: 'right'
+                
+                # License
+                MDCard:
+                    orientation: 'vertical'
+                    padding: dp(15)
+                    spacing: dp(10)
+                    elevation: 5
+                    radius: [15]
+                    size_hint_y: None
+                    height: self.minimum_height
+                    
+                    MDLabel:
+                        text: 'الترخيص'
+                        font_style: 'H6'
+                        bold: True
+                        theme_text_color: 'Primary'
+                    
+                    MDSeparator:
+                        height: dp(1)
+                    
+                    MDLabel:
+                        text: 'MIT License - جميع الحقوق محفوظة © 2024'
+                        font_style: 'Caption'
+                        theme_text_color: 'Secondary'
+                        halign: 'center'
+                
+                # Links
+                MDBoxLayout:
+                    orientation: 'horizontal'
+                    spacing: dp(10)
+                    adaptive_height: True
+                    pos_hint: {'center_x': 0.5}
+                    
+                    MDIconButton:
+                        icon: 'github'
+                        on_release: root.open_github()
+                        theme_text_color: 'Custom'
+                        text_color: app.theme_cls.primary_color
+                    
+                    MDIconButton:
+                        icon: 'web'
+                        on_release: root.open_website()
+                        theme_text_color: 'Custom'
+                        text_color: app.theme_cls.primary_color
+                    
+                    MDIconButton:
+                        icon: 'email'
+                        on_release: root.send_email()
+                        theme_text_color: 'Custom'
+                        text_color: app.theme_cls.primary_color

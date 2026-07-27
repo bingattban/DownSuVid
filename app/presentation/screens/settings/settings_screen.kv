@@ -1,0 +1,183 @@
+<SettingsScreen>:
+    name: 'settings'
+    
+    MDBoxLayout:
+        orientation: 'vertical'
+        spacing: 0
+        
+        MDToolbar:
+            title: 'الإعدادات'
+            left_action_items: [['arrow-left', lambda x: setattr(app.root, 'current', 'downloader')]]
+            elevation: 10
+        
+        MDScrollView:
+            MDBoxLayout:
+                orientation: 'vertical'
+                spacing: dp(10)
+                padding: dp(15)
+                adaptive_height: True
+                
+                # Theme Settings
+                MDCard:
+                    orientation: 'vertical'
+                    padding: dp(15)
+                    spacing: dp(10)
+                    elevation: 5
+                    radius: [15]
+                    size_hint_y: None
+                    height: self.minimum_height
+                    
+                    MDLabel:
+                        text: 'المظهر'
+                        font_style: 'H6'
+                        bold: True
+                    
+                    MDSeparator:
+                        height: dp(1)
+                    
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        spacing: dp(10)
+                        adaptive_height: True
+                        
+                        MDLabel:
+                            text: 'الوضع الليلي'
+                            font_style: 'Body1'
+                        
+                        MDSwitch:
+                            id: dark_mode_switch
+                            active: True
+                            on_active: root.toggle_theme()
+                
+                # Download Settings
+                MDCard:
+                    orientation: 'vertical'
+                    padding: dp(15)
+                    spacing: dp(10)
+                    elevation: 5
+                    radius: [15]
+                    size_hint_y: None
+                    height: self.minimum_height
+                    
+                    MDLabel:
+                        text: 'التحميل'
+                        font_style: 'H6'
+                        bold: True
+                    
+                    MDSeparator:
+                        height: dp(1)
+                    
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        spacing: dp(10)
+                        adaptive_height: True
+                        
+                        MDLabel:
+                            text: 'الجودة المفضلة'
+                            font_style: 'Body1'
+                        
+                        MDRaisedButton:
+                            id: quality_btn
+                            text: '720p'
+                            on_release: root.show_quality_dialog()
+                    
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        spacing: dp(10)
+                        adaptive_height: True
+                        
+                        MDLabel:
+                            text: 'عدد التحميلات المتزامنة'
+                            font_style: 'Body1'
+                        
+                        MDSlider:
+                            id: parallel_slider
+                            min: 1
+                            max: 5
+                            value: 3
+                            step: 1
+                            on_value: root.set_parallel_downloads(self.value)
+                    
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        spacing: dp(10)
+                        adaptive_height: True
+                        
+                        MDLabel:
+                            text: 'استئناف تلقائي'
+                            font_style: 'Body1'
+                        
+                        MDSwitch:
+                            id: auto_resume_switch
+                            active: True
+                            on_active: root.toggle_auto_resume()
+                
+                # Storage Settings
+                MDCard:
+                    orientation: 'vertical'
+                    padding: dp(15)
+                    spacing: dp(10)
+                    elevation: 5
+                    radius: [15]
+                    size_hint_y: None
+                    height: self.minimum_height
+                    
+                    MDLabel:
+                        text: 'التخزين'
+                        font_style: 'H6'
+                        bold: True
+                    
+                    MDSeparator:
+                        height: dp(1)
+                    
+                    MDBoxLayout:
+                        orientation: 'horizontal'
+                        spacing: dp(10)
+                        adaptive_height: True
+                        
+                        MDLabel:
+                            text: 'تنظيف تلقائي للملفات المؤقتة'
+                            font_style: 'Body1'
+                        
+                        MDSwitch:
+                            id: auto_clean_switch
+                            active: False
+                            on_active: root.toggle_auto_clean()
+                    
+                    MDRaisedButton:
+                        text: 'تنظيف الملفات المؤقتة الآن'
+                        icon: 'delete-sweep'
+                        on_release: root.clean_temp_files()
+                    
+                    MDLabel:
+                        id: storage_info
+                        text: 'المساحة المستخدمة: جاري الحساب...'
+                        font_style: 'Caption'
+                        theme_text_color: 'Secondary'
+                
+                # About
+                MDCard:
+                    orientation: 'vertical'
+                    padding: dp(15)
+                    spacing: dp(10)
+                    elevation: 5
+                    radius: [15]
+                    size_hint_y: None
+                    height: self.minimum_height
+                    
+                    MDLabel:
+                        text: 'حول التطبيق'
+                        font_style: 'H6'
+                        bold: True
+                    
+                    MDSeparator:
+                        height: dp(1)
+                    
+                    MDLabel:
+                        text: 'داون سو فيد v1.0.0'
+                        font_style: 'Body1'
+                    
+                    MDLabel:
+                        text: 'تطبيق تحميل فيديوهات مع معالجة ذكية للترجمة'
+                        font_style: 'Caption'
+                        theme_text_color: 'Secondary'

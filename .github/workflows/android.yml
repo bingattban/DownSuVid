@@ -1,0 +1,172 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-22.04
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            ccache \
+            git \
+            libncurses5:i386 \
+            libstdc++6:i386 \
+            libgtk2.0-0:i386 \
+            libpangox-1.0-0:i386 \
+            libpangoxft-1.0-0:i386 \
+            libidn11:i386 \
+            python3-pip \
+            python3-dev \
+            openjdk-17-jdk \
+            zlib1g-dev \
+            zlib1g:i386 \
+            libltdl-dev \
+            libffi-dev \
+            libssl-dev \
+            autoconf \
+            automake \
+            libtool \
+            cmake \
+            ninja-build \
+            pkg-config
+      
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install buildozer==1.5.0
+          pip install cython==0.29.36
+          pip install virtualenv
+      
+      - name: Install project requirements
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Cache Buildozer
+        uses: actions/cache@v3
+        with:
+          path: |
+            .buildozer
+            ~/.cache/pip
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-buildozer-
+      
+      - name: Verify Python syntax
+        run: |
+          python -m compileall app/ -q || true
+          python -m py_compile main.py
+      
+      - name: Check imports
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          try:
+              from app.config.constants import APP_NAME, APP_VERSION
+              print(f'App: {APP_NAME} v{APP_VERSION}')
+              print('Basic imports OK')
+          except Exception as e:
+              print(f'Import check failed: {e}')
+          "
+      
+      - name: Build APK with Buildozer
+        run: |
+          buildozer android debug
+      
+      - name: Verify APK exists
+        run: |
+          if [ -f bin/*.apk ]; then
+            echo "APK built successfully"
+            ls -lh bin/*.apk
+          else
+            echo "APK not found!"
+            exit 1
+          fi
+      
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: DownSuVid-APK
+          path: bin/*.apk
+          retention-days: 30
+      
+      - name: Build AAB (Release)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          buildozer android release
+      
+      - name: Upload AAB artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v3
+        with:
+          name: DownSuVid-AAB
+          path: bin/*.aab
+          retention-days: 90
+
+  lint:
+    name: Code Quality Check
+    runs-on: ubuntu-22.04
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install flake8==6.1.0
+          pip install black==23.7.0
+      
+      - name: Check code formatting
+        run: |
+          black --check --diff .
+      
+      - name: Lint with flake8
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --statistics
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-22.04
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest==7.4.0 pytest-asyncio==0.21.0
+      
+      - name: Run tests
+        run: |
+          python -m pytest app/tests/ -v --tb=short

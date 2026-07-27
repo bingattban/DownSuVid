@@ -1,0 +1,28 @@
+# Core Framework
+kivy==2.2.1
+kivymd==1.1.1
+
+# Download Engine
+yt-dlp==2023.10.13
+
+# Networking
+httpx==0.24.1
+aiofiles==23.2.0
+
+# Image Processing
+Pillow==10.0.0
+
+# System Utilities
+psutil==5.9.5
+
+# Database
+# sqlite3 is built-in
+
+# Testing
+pytest==7.4.0
+pytest-asyncio==0.21.0
+
+# Code Quality
+black==23.7.0
+flake8==6.1.0
+mypy==1.4.1
