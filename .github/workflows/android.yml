@@ -16,7 +16,7 @@ jobs:
     name: Build DownSuVid APK
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,14 +47,13 @@ jobs:
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update -qq
-          sudo apt-get install -y -qq libncurses-dev:i386 libstdc++6:i386 zlib1g:i386 2>/dev/null || echo "32-bit libs skipped"
+          sudo apt-get install -y -qq \
+            libncurses-dev:i386 libstdc++6:i386 zlib1g:i386 2>/dev/null || true
 
-      - name: Upgrade pip and install build tools
+      - name: Install Python build tools
         run: |
           python3 -m pip install --upgrade pip setuptools wheel
-          pip install buildozer==1.5.0
-          pip install cython==0.29.36
-          pip install virtualenv
+          pip install buildozer==1.5.0 cython==0.29.36 virtualenv
 
       - name: Cache Buildozer
         uses: actions/cache@v4
@@ -63,39 +62,37 @@ jobs:
             .buildozer
             ~/.cache/pip
             ~/.buildozer
-          key: buildozer-v4-${{ runner.os }}-${{ hashFiles('buildozer.spec', 'main.py') }}
-          restore-keys: buildozer-v4-${{ runner.os }}-
+          key: buildozer-v5-${{ runner.os }}-${{ hashFiles('buildozer.spec', 'main.py') }}
+          restore-keys: buildozer-v5-${{ runner.os }}-
 
-      - name: Create assets
+      - name: Create placeholder assets
         run: |
           mkdir -p assets/icons assets/splash
           python3 -c "
-          import struct, zlib
-          def png(f, r, g, b):
-              def c(t, d):
-                  x = t + d
-                  return struct.pack('>I', len(d)) + x + struct.pack('>I', zlib.crc32(x) & 0xffffffff)
-              raw = b'\x00' + bytes([r, g, b, 255])
-              h = b'\x89PNG\r\n\x1a\n' + c(b'IHDR', struct.pack('>IIBBBBB', 1, 1, 8, 6, 0, 0, 0))
-              h += c(b'IDAT', zlib.compress(raw)) + c(b'IEND', b'')
-              with open(f, 'wb') as fh: fh.write(h)
-          png('assets/icons/icon.png', 0, 150, 136)
-          png('assets/splash/splash.png', 26, 35, 126)
+          import struct,zlib
+          def png(f,r,g,b):
+              def c(t,d):
+                  x=t+d
+                  return struct.pack('>I',len(d))+x+struct.pack('>I',zlib.crc32(x)&0xffffffff)
+              raw=b'\x00'+bytes([r,g,b,255])
+              h=b'\x89PNG\r\n\x1a\n'+c(b'IHDR',struct.pack('>IIBBBBB',1,1,8,6,0,0,0))
+              h+=c(b'IDAT',zlib.compress(raw))+c(b'IEND',b'')
+              with open(f,'wb') as fh: fh.write(h)
+          png('assets/icons/icon.png',0,150,136)
+          png('assets/splash/splash.png',26,35,126)
           "
 
-      - name: Verify main.py
+      - name: Verify main.py syntax
         run: |
-          python3 -m py_compile main.py && echo "main.py OK"
+          python3 -m py_compile main.py && echo "main.py syntax OK"
 
-      - name: Build APK with Buildozer
+      - name: Build APK
         id: build
         run: |
-          echo "=== Starting Build ==="
-          
-          # Define SDK path
+          echo "=== Setup Android SDK ==="
           SDK="$HOME/.buildozer/android/platform/android-sdk"
+          mkdir -p "$SDK"
           
-          # Download and setup commandline tools
           cd /tmp
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -qo commandlinetools-linux-11076708_latest.zip
@@ -103,87 +100,41 @@ jobs:
           rm -rf "$SDK/cmdline-tools/latest"
           mv cmdline-tools "$SDK/cmdline-tools/latest"
           
-          # Create the OLD path structure that Buildozer expects
+          # Create symlink for old sdkmanager path
           mkdir -p "$SDK/tools/bin"
-          
-          # Create symlink: old path -> new path
           ln -sf "$SDK/cmdline-tools/latest/bin/sdkmanager" "$SDK/tools/bin/sdkmanager"
-          ln -sf "$SDK/cmdline-tools/latest/bin/avdmanager" "$SDK/tools/bin/avdmanager"
-          
-          # Make executable
           chmod +x "$SDK/cmdline-tools/latest/bin/"*
           
-          # Set environment
+          # Accept licenses
+          mkdir -p "$SDK/licenses" ~/.android
+          for license in android-sdk-license android-sdk-preview-license; do
+            echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > "$SDK/licenses/$license"
+            cp "$SDK/licenses/$license" ~/.android/ 2>/dev/null || true
+          done
+          
           export ANDROID_HOME="$SDK"
           export ANDROID_SDK_ROOT="$SDK"
           export PATH="$SDK/cmdline-tools/latest/bin:$SDK/tools/bin:$PATH"
           
-          # Create license files
-          mkdir -p "$SDK/licenses"
-          cat > "$SDK/licenses/android-sdk-license" << 'EOF'
-
-          8933bad161af4178b1185d1a37fbf41ea5269c55
-          d56f5187479451eabf01fb78af6dfcb131a6481e
-          24333f8a63b6825ea9c5514f83c2829b004d1fee
-          EOF
-          
-          # Also for home .android
-          mkdir -p ~/.android
-          cp "$SDK/licenses/android-sdk-license" ~/.android/
-          
-          # Accept licenses
           yes | sdkmanager --licenses 2>/dev/null || true
-          
-          # Install SDK components
           sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" 2>/dev/null || true
           
-          # Verify sdkmanager is accessible from BOTH paths
-          echo "=== Verifying sdkmanager ==="
-          echo "New path:"
-          ls -la "$SDK/cmdline-tools/latest/bin/sdkmanager" 2>/dev/null || echo "Not found (new)"
-          echo "Old path:"
-          ls -la "$SDK/tools/bin/sdkmanager" 2>/dev/null || echo "Not found (old)"
-          echo "PATH check:"
-          which sdkmanager 2>/dev/null || echo "Not in PATH"
-          
-          # Verify license files
-          echo "=== License files ==="
-          ls -la "$SDK/licenses/" 2>/dev/null || echo "No licenses dir"
-          cat "$SDK/licenses/android-sdk-license" 2>/dev/null || echo "No license file"
-          
-          # Now run Buildozer
-          echo "=== Running Buildozer ==="
+          echo "=== Building ==="
           buildozer android debug 2>&1 | tee build.log
-          EXIT_CODE=${PIPESTATUS[0]}
+          EXIT=${PIPESTATUS[0]}
           
-          if [ $EXIT_CODE -ne 0 ]; then
-            echo "=== Build failed with code $EXIT_CODE ==="
-            echo "=== Last 60 lines of log ==="
-            tail -60 build.log
+          if [ $EXIT -ne 0 ]; then
+            echo "=== Build failed ==="
+            tail -50 build.log
             exit 1
           fi
-          
           echo "=== Build successful ==="
-
-      - name: Locate APK
-        id: locate
-        run: |
-          APK=$(find . -name "*.apk" -not -name "*unaligned*" -not -name "*unsigned*" 2>/dev/null | head -1)
-          if [ -n "$APK" ]; then
-            echo "APK found: $APK"
-            echo "apk_path=$APK" >> $GITHUB_OUTPUT
-            ls -lh "$APK"
-          else
-            echo "ERROR: APK not found!"
-            find . -name "*.apk" 2>/dev/null || echo "No APK anywhere"
-            exit 1
-          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: DownSuVid-APK
-          path: ${{ steps.locate.outputs.apk_path }}
+          path: bin/*.apk
           retention-days: 30
           compression-level: 6
           if-no-files-found: error
