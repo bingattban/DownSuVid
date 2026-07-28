@@ -1,146 +1,75 @@
 [app]
 
-# ------------------------------------------------------------------
-# Application
-# ------------------------------------------------------------------
-
+# (str) Title of your application
 title = DownSuVid
 
-package.name = downsuvid
-package.domain = com.downsuvid
+# (str) Package name
+package.name = downsuviid
 
+# (str) Package domain
+package.domain = com.downsuviid
+
+# (str) Source code where the main.py live
 source.dir = .
 
+# (list) Source files to include
+source.include_exts = py,png,jpg,kv,atlas,json,ttf
+
+# (list) List of directory to exclude
+source.exclude_dirs = tests,docs,.git,.github,.buildozer,venv,__pycache__
+
+# (str) Application versioning
 version = 1.0.0
 
-# ------------------------------------------------------------------
-# Source
-# ------------------------------------------------------------------
+# (list) Application requirements
+requirements = python3,kivy,yt-dlp
 
-source.include_exts = py,png,jpg,jpeg,kv,atlas,json,ttf,otf,txt,ini,xml
-
-source.exclude_exts = pyc,pyo
-
-source.exclude_dirs = \
-tests,\
-docs,\
-.git,\
-.github,\
-.buildozer,\
-venv,\
-env,\
-__pycache__
-
-source.exclude_patterns = \
-.git/*,\
-.github/*,\
-.buildozer/*
-
-# ------------------------------------------------------------------
-# Resources
-# ------------------------------------------------------------------
-
-icon.filename = assets/icons/icon.png
-
-presplash.filename = assets/splash/splash.png
-
-# ------------------------------------------------------------------
-# Version
-# ------------------------------------------------------------------
-
-version.regex = __version__ = ['"](.*)['"]
-version.filename = %(source.dir)s/main.py
-
-# ------------------------------------------------------------------
-# Requirements
-# ------------------------------------------------------------------
-
-requirements = python3,kivy,kivymd,yt-dlp,httpx,aiofiles,pillow,psutil
-
-# ------------------------------------------------------------------
-# Orientation
-# ------------------------------------------------------------------
-
+# (str) Supported orientation
 orientation = portrait
 
+# (bool) Indicate if the application should be fullscreen or not
 fullscreen = 0
 
-# ------------------------------------------------------------------
-# Android SDK
-# ------------------------------------------------------------------
+# (str) Presplash background color
+android.presplash_color = #1A237E
 
+# (list) Permissions
+android.permissions = INTERNET,ACCESS_NETWORK_STATE,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
+
+# (int) Target Android API
 android.api = 33
 
+# (int) Minimum API your APK will support
 android.minapi = 26
 
+# (int) Android SDK version to use
 android.sdk = 33
 
+# (str) Android NDK version to use
 android.ndk = 25b
 
+# (int) Android NDK API to use
 android.ndk_api = 26
 
-android.accept_sdk_agreement = True
-
+# (bool) Use --private data storage
 android.private_storage = True
 
-android.allow_backup = True
+# (bool) If True, then automatically accept SDK license agreements
+android.accept_sdk_agreement = True
 
-android.enable_androidx = True
+# (str) Android entry point
+android.entrypoint = org.kivy.android.PythonActivity
 
-android.archs = arm64-v8a,armeabi-v7a
+# (str) python-for-android branch to use
+p4a.branch = develop
 
-# ------------------------------------------------------------------
-# Permissions
-# ------------------------------------------------------------------
-
-android.permissions = \
-INTERNET,\
-ACCESS_NETWORK_STATE,\
-READ_EXTERNAL_STORAGE,\
-WRITE_EXTERNAL_STORAGE
-
-# ------------------------------------------------------------------
-# Bootstrap
-# ------------------------------------------------------------------
-
+# (str) Bootstrap to use for android builds
 p4a.bootstrap = sdl2
-
-# ------------------------------------------------------------------
-# Java
-# ------------------------------------------------------------------
-
-android.release_artifact = apk
-
-# ------------------------------------------------------------------
-# Performance
-# ------------------------------------------------------------------
-
-android.copy_libs = 1
-
-# ------------------------------------------------------------------
-# Splash
-# ------------------------------------------------------------------
-
-presplash.color = #1A237E
-
-# ------------------------------------------------------------------
-# Logging
-# ------------------------------------------------------------------
-
-log_level = 2
-
-# ------------------------------------------------------------------
-# Build directory
-# ------------------------------------------------------------------
-
-build_dir = .buildozer
-
-# ------------------------------------------------------------------
-# Buildozer
-# ------------------------------------------------------------------
 
 [buildozer]
 
+# (int) Log level (0 = error only, 1 = info, 2 = debug)
 log_level = 2
 
+# (int) Display warning if buildozer is run as root
 warn_on_root = 1
