@@ -36,40 +36,15 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-
-          sudo apt-get install -y \
-            git \
-            zip \
-            unzip \
-            wget \
-            curl \
-            build-essential \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            cmake \
-            ninja-build \
-            ccache \
-            libffi-dev \
-            libssl-dev \
-            zlib1g-dev \
-            libncurses-dev \
-            libltdl-dev
+          sudo apt-get install -y git zip unzip wget curl build-essential autoconf automake libtool pkg-config cmake ninja-build ccache libffi-dev libssl-dev zlib1g-dev libncurses-dev libltdl-dev
 
       - name: Upgrade pip
         run: |
-          python -m pip install --upgrade \
-            pip \
-            setuptools \
-            wheel
+          python -m pip install --upgrade pip setuptools wheel
 
       - name: Install Buildozer
         run: |
-          python -m pip install \
-            buildozer==1.5.0 \
-            "Cython<3" \
-            virtualenv
+          python -m pip install buildozer==1.5.0 "Cython<3" virtualenv
 
       - name: Verify installation
         run: |
@@ -90,157 +65,49 @@ jobs:
 
       - name: Create required assets
         run: |
-          mkdir -p assets/icons
-          mkdir -p assets/splash
-
+          mkdir -p assets/icons assets/splash
           python3 - <<'PY'
-          import struct
-          import zlib
-
-          def chunk(kind, data):
-              c = kind + data
-              return (
-                  struct.pack(">I", len(data))
-                  + c
-                  + struct.pack(">I", zlib.crc32(c) & 0xffffffff)
-              )
-
-          def create_png(path, r, g, b):
-              raw = b"\x00" + bytes([r, g, b, 255])
-
-              png = (
-                  b"\x89PNG\r\n\x1a\n"
-                  + chunk(
-                      b"IHDR",
-                      struct.pack(">IIBBBBB",1,1,8,6,0,0,0)
-                  )
-                  + chunk(
-                      b"IDAT",
-                      zlib.compress(raw)
-                  )
-                  + chunk(
-                      b"IEND",
-                      b""
-                  )
-              )
-
-              with open(path,"wb") as f:
-                  f.write(png)
-
-          create_png(
-              "assets/icons/icon.png",
-              0,
-              150,
-              136
-          )
-
-          create_png(
-              "assets/splash/splash.png",
-              26,
-              35,
-              126
-          )
-
+          from pathlib import Path
+          import struct,zlib
+          def chunk(k,d):
+              c=k+d
+              return struct.pack(">I",len(d))+c+struct.pack(">I",zlib.crc32(c)&0xffffffff)
+          def png(path,r,g,b):
+              raw=b"\x00"+bytes([r,g,b,255])
+              data=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack(">IIBBBBB",1,1,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(raw))+chunk(b'IEND',b'')
+              Path(path).write_bytes(data)
+          png("assets/icons/icon.png",0,150,136)
+          png("assets/splash/splash.png",26,35,126)
           print("Placeholder assets created")
           PY
 
       - name: Check Python syntax
         run: |
           python -m py_compile main.py
-          echo "Syntax OK"
-                - name: Build APK
+
+      - name: Build APK
         run: |
-          echo "========================================="
-          echo "Starting Buildozer"
-          echo "========================================="
-
           buildozer -v android debug 2>&1 | tee build.log
-
-          EXIT_CODE=${PIPESTATUS[0]}
-
-          if [ $EXIT_CODE -ne 0 ]; then
-            echo "========================================="
-            echo "BUILD FAILED"
-            echo "========================================="
-            tail -200 build.log
-            exit $EXIT_CODE
-          fi
+          test ${PIPESTATUS[0]} -eq 0 || { tail -200 build.log; exit 1; }
 
       - name: Locate APK
         id: apk
-        shell: bash
         run: |
-
-          APK=""
-
-          if ls bin/*.apk >/dev/null 2>&1; then
-            APK=$(ls bin/*.apk | head -n1)
-          fi
-
-          if [ -z "$APK" ]; then
-            APK=$(find . -type f -name "*.apk" \
-              ! -name "*unaligned*" \
-              ! -name "*unsigned*" \
-              | head -n1)
-          fi
-
-          if [ -z "$APK" ]; then
-            echo "APK not found."
-
-            find . -name "*.apk"
-
-            exit 1
-          fi
-
-          echo "APK=$APK"
-
+          APK=$(find . -type f -name "*.apk" ! -name "*unaligned*" ! -name "*unsigned*" | head -n1)
+          test -n "$APK"
           echo "apk_path=$APK" >> "$GITHUB_OUTPUT"
-
-          ls -lh "$APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: DownSuVid-APK
           path: ${{ steps.apk.outputs.apk_path }}
-          if-no-files-found: error
-          retention-days: 30
 
       - name: Upload Logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
-          retention-days: 7
-          if-no-files-found: ignore
           path: |
             build.log
             .buildozer/logs/**
-            .buildozer/android/platform/python-for-android/build.log
-
-      - name: Summary
-        if: always()
-        run: |
-          echo "=============================="
-          echo "Python:"
-          python --version
-
-          echo
-
-          echo "Java:"
-          java -version
-
-          echo
-
-          echo "Buildozer:"
-          buildozer version
-
-          echo
-
-          echo "Directory:"
-          pwd
-
-          echo
-
-          echo "Finished."
-        
