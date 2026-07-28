@@ -1,53 +1,146 @@
 [app]
 
-# (str) Title of your application
+# ------------------------------------------------------------------
+# Application
+# ------------------------------------------------------------------
+
 title = DownSuVid
 
-# (str) Package name
-package.name = downsuviid
+package.name = downsuvid
+package.domain = com.downsuvid
 
-# (str) Package domain
-package.domain = com.downsuviid
-
-# (str) Source code where the main.py live
 source.dir = .
 
-# (list) Source files to include
-source.include_exts = py,png,jpg,kv,atlas,json,ttf
-
-# (list) List of directory to exclude
-source.exclude_dirs = tests,docs,.git,.github,.buildozer,venv,app
-
-# (str) Application versioning
 version = 1.0.0
 
-# (list) Application requirements - minimal
-requirements = python3,kivy
+# ------------------------------------------------------------------
+# Source
+# ------------------------------------------------------------------
 
-# (str) Icon of the application
-#icon.filename = %(source.dir)s/icon.png
+source.include_exts = py,png,jpg,jpeg,kv,atlas,json,ttf,otf,txt,ini,xml
 
-# (str) Presplash of the application
-#presplash.filename = %(source.dir)s/presplash.png
+source.exclude_exts = pyc,pyo
 
-# (str) Supported orientation
+source.exclude_dirs = \
+tests,\
+docs,\
+.git,\
+.github,\
+.buildozer,\
+venv,\
+env,\
+__pycache__
+
+source.exclude_patterns = \
+.git/*,\
+.github/*,\
+.buildozer/*
+
+# ------------------------------------------------------------------
+# Resources
+# ------------------------------------------------------------------
+
+icon.filename = assets/icons/icon.png
+
+presplash.filename = assets/splash/splash.png
+
+# ------------------------------------------------------------------
+# Version
+# ------------------------------------------------------------------
+
+version.regex = __version__ = ['"](.*)['"]
+version.filename = %(source.dir)s/main.py
+
+# ------------------------------------------------------------------
+# Requirements
+# ------------------------------------------------------------------
+
+requirements = python3,kivy,kivymd,yt-dlp,httpx,aiofiles,pillow,psutil
+
+# ------------------------------------------------------------------
+# Orientation
+# ------------------------------------------------------------------
+
 orientation = portrait
 
-# Android specific
 fullscreen = 0
-android.permissions = INTERNET,ACCESS_NETWORK_STATE,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
+
+# ------------------------------------------------------------------
+# Android SDK
+# ------------------------------------------------------------------
+
 android.api = 33
+
 android.minapi = 26
+
 android.sdk = 33
+
 android.ndk = 25b
+
 android.ndk_api = 26
-android.private_storage = True
+
 android.accept_sdk_agreement = True
 
-# p4a settings
-p4a.branch = develop
+android.private_storage = True
+
+android.allow_backup = True
+
+android.enable_androidx = True
+
+android.archs = arm64-v8a,armeabi-v7a
+
+# ------------------------------------------------------------------
+# Permissions
+# ------------------------------------------------------------------
+
+android.permissions = \
+INTERNET,\
+ACCESS_NETWORK_STATE,\
+READ_EXTERNAL_STORAGE,\
+WRITE_EXTERNAL_STORAGE
+
+# ------------------------------------------------------------------
+# Bootstrap
+# ------------------------------------------------------------------
+
 p4a.bootstrap = sdl2
 
-[buildozer]
+# ------------------------------------------------------------------
+# Java
+# ------------------------------------------------------------------
+
+android.release_artifact = apk
+
+# ------------------------------------------------------------------
+# Performance
+# ------------------------------------------------------------------
+
+android.copy_libs = 1
+
+# ------------------------------------------------------------------
+# Splash
+# ------------------------------------------------------------------
+
+presplash.color = #1A237E
+
+# ------------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------------
+
 log_level = 2
+
+# ------------------------------------------------------------------
+# Build directory
+# ------------------------------------------------------------------
+
+build_dir = .buildozer
+
+# ------------------------------------------------------------------
+# Buildozer
+# ------------------------------------------------------------------
+
+[buildozer]
+
+log_level = 2
+
 warn_on_root = 1
