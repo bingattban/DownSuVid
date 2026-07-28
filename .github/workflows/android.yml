@@ -47,7 +47,7 @@ jobs:
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update -qq
-          sudo apt-get install -y -qq libncurses-dev:i386 libstdc++6:i386 zlib1g:i386 2>/dev/null || echo "Some 32-bit libs skipped"
+          sudo apt-get install -y -qq libncurses-dev:i386 libstdc++6:i386 zlib1g:i386 2>/dev/null || echo "32-bit libs skipped"
 
       - name: Upgrade pip and install build tools
         run: |
@@ -63,132 +63,118 @@ jobs:
             .buildozer
             ~/.cache/pip
             ~/.buildozer
-          key: buildozer-v3-${{ runner.os }}-${{ hashFiles('buildozer.spec', 'main.py') }}
-          restore-keys: buildozer-v3-${{ runner.os }}-
+          key: buildozer-v4-${{ runner.os }}-${{ hashFiles('buildozer.spec', 'main.py') }}
+          restore-keys: buildozer-v4-${{ runner.os }}-
 
       - name: Create assets
         run: |
           mkdir -p assets/icons assets/splash
           python3 -c "
           import struct, zlib
-          def png(filename, r, g, b):
-              def chunk(t, d):
-                  c = t + d
-                  return struct.pack('>I', len(d)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
+          def png(f, r, g, b):
+              def c(t, d):
+                  x = t + d
+                  return struct.pack('>I', len(d)) + x + struct.pack('>I', zlib.crc32(x) & 0xffffffff)
               raw = b'\x00' + bytes([r, g, b, 255])
-              h = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', 1, 1, 8, 6, 0, 0, 0))
-              h += chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
-              with open(filename, 'wb') as f: f.write(h)
+              h = b'\x89PNG\r\n\x1a\n' + c(b'IHDR', struct.pack('>IIBBBBB', 1, 1, 8, 6, 0, 0, 0))
+              h += c(b'IDAT', zlib.compress(raw)) + c(b'IEND', b'')
+              with open(f, 'wb') as fh: fh.write(h)
           png('assets/icons/icon.png', 0, 150, 136)
           png('assets/splash/splash.png', 26, 35, 126)
           "
 
       - name: Verify main.py
         run: |
-          python3 -m py_compile main.py && echo "Syntax OK"
+          python3 -m py_compile main.py && echo "main.py OK"
 
-      - name: Setup Android SDK and accept licenses
+      - name: Build APK with Buildozer
+        id: build
         run: |
-          SDK="$HOME/.buildozer/android/platform/android-sdk"
-          mkdir -p "$SDK"
+          echo "=== Starting Build ==="
           
-          # Download commandline tools
+          # Define SDK path
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+          
+          # Download and setup commandline tools
           cd /tmp
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q commandlinetools-linux-11076708_latest.zip
+          unzip -qo commandlinetools-linux-11076708_latest.zip
           mkdir -p "$SDK/cmdline-tools"
+          rm -rf "$SDK/cmdline-tools/latest"
           mv cmdline-tools "$SDK/cmdline-tools/latest"
           
-          # Set PATH
+          # Create the OLD path structure that Buildozer expects
+          mkdir -p "$SDK/tools/bin"
+          
+          # Create symlink: old path -> new path
+          ln -sf "$SDK/cmdline-tools/latest/bin/sdkmanager" "$SDK/tools/bin/sdkmanager"
+          ln -sf "$SDK/cmdline-tools/latest/bin/avdmanager" "$SDK/tools/bin/avdmanager"
+          
+          # Make executable
+          chmod +x "$SDK/cmdline-tools/latest/bin/"*
+          
+          # Set environment
+          export ANDROID_HOME="$SDK"
           export ANDROID_SDK_ROOT="$SDK"
-          export PATH="$SDK/cmdline-tools/latest/bin:$PATH"
+          export PATH="$SDK/cmdline-tools/latest/bin:$SDK/tools/bin:$PATH"
           
-          # Create license files FIRST (before any sdkmanager call)
+          # Create license files
           mkdir -p "$SDK/licenses"
-          
-          # Android SDK License (the long hash is the accepted license key)
-          cat > "$SDK/licenses/android-sdk-license" << 'LICENSE'
-          
+          cat > "$SDK/licenses/android-sdk-license" << 'EOF'
+
           8933bad161af4178b1185d1a37fbf41ea5269c55
           d56f5187479451eabf01fb78af6dfcb131a6481e
           24333f8a63b6825ea9c5514f83c2829b004d1fee
-          LICENSE
+          EOF
           
-          # Android SDK Preview License
-          cat > "$SDK/licenses/android-sdk-preview-license" << 'LICENSE'
+          # Also for home .android
+          mkdir -p ~/.android
+          cp "$SDK/licenses/android-sdk-license" ~/.android/
           
-          84831b9409646a918e30573bab4c9c91346d8abd
-          504667f4c0de7af1a06de9f4b1727b84351f2910
-          LICENSE
-          
-          # Google Maven License
-          cat > "$SDK/licenses/android-googletv-license" << 'LICENSE'
-          
-          601085b94cd77f0b54ff86406957099ebe79c4d6
-          LICENSE
-          
-          # Accept licenses via sdkmanager
+          # Accept licenses
           yes | sdkmanager --licenses 2>/dev/null || true
           
-          # Install required packages
-          sdkmanager --install "platform-tools" "platforms;android-33" "build-tools;33.0.0" 2>/dev/null || true
+          # Install SDK components
+          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" 2>/dev/null || true
           
-          # Verify installation
-          echo "=== SDK Structure ==="
-          ls -la "$SDK/"
-          ls -la "$SDK/licenses/"
-          ls -la "$SDK/platforms/" 2>/dev/null || echo "No platforms"
-          ls -la "$SDK/build-tools/" 2>/dev/null || echo "No build-tools"
-          echo "=== sdkmanager check ==="
-          which sdkmanager || echo "sdkmanager not in PATH"
-          find "$SDK" -name "sdkmanager" 2>/dev/null
-
-      - name: Build APK
-        id: build
-        env:
-          ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
-          ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
-          JAVA_HOME: ${{ env.JAVA_HOME }}
-        run: |
-          echo "=== Building APK ==="
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "JAVA_HOME=$JAVA_HOME"
+          # Verify sdkmanager is accessible from BOTH paths
+          echo "=== Verifying sdkmanager ==="
+          echo "New path:"
+          ls -la "$SDK/cmdline-tools/latest/bin/sdkmanager" 2>/dev/null || echo "Not found (new)"
+          echo "Old path:"
+          ls -la "$SDK/tools/bin/sdkmanager" 2>/dev/null || echo "Not found (old)"
+          echo "PATH check:"
+          which sdkmanager 2>/dev/null || echo "Not in PATH"
           
-          # Ensure license files exist
-          mkdir -p "$ANDROID_HOME/licenses"
-          for f in android-sdk-license android-sdk-preview-license; do
-            if [ ! -f "$ANDROID_HOME/licenses/$f" ]; then
-              echo "Recreating $f"
-              cp "$ANDROID_HOME/licenses/"* "$ANDROID_HOME/licenses/" 2>/dev/null || true
-            fi
-          done
+          # Verify license files
+          echo "=== License files ==="
+          ls -la "$SDK/licenses/" 2>/dev/null || echo "No licenses dir"
+          cat "$SDK/licenses/android-sdk-license" 2>/dev/null || echo "No license file"
           
-          # Also create in home .android
-          mkdir -p ~/.android
-          cp "$ANDROID_HOME/licenses/android-sdk-license" ~/.android/ 2>/dev/null || true
-          
-          # Run buildozer
+          # Now run Buildozer
+          echo "=== Running Buildozer ==="
           buildozer android debug 2>&1 | tee build.log
           EXIT_CODE=${PIPESTATUS[0]}
           
           if [ $EXIT_CODE -ne 0 ]; then
-            echo "=== Build failed ==="
-            tail -80 build.log
+            echo "=== Build failed with code $EXIT_CODE ==="
+            echo "=== Last 60 lines of log ==="
+            tail -60 build.log
             exit 1
           fi
           
           echo "=== Build successful ==="
 
-      - name: Locate and upload APK
+      - name: Locate APK
         id: locate
         run: |
           APK=$(find . -name "*.apk" -not -name "*unaligned*" -not -name "*unsigned*" 2>/dev/null | head -1)
           if [ -n "$APK" ]; then
-            echo "APK: $APK"
+            echo "APK found: $APK"
             echo "apk_path=$APK" >> $GITHUB_OUTPUT
             ls -lh "$APK"
           else
-            echo "APK not found!"
+            echo "ERROR: APK not found!"
             find . -name "*.apk" 2>/dev/null || echo "No APK anywhere"
             exit 1
           fi
@@ -202,11 +188,11 @@ jobs:
           compression-level: 6
           if-no-files-found: error
 
-      - name: Upload logs
+      - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-logs-${{ github.run_id }}
+          name: build-log-${{ github.run_id }}
           path: build.log
           retention-days: 7
           if-no-files-found: ignore
